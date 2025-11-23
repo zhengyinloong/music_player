@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🎵 本地音乐播放器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+    }
+
+    /* 全屏频谱背景 */
+    #visualizerCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.3; /* 半透明，不干扰前景 */
+    }
+
+    body {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      position: relative;
+    }
+
+    .player-container {
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 500px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      z-index: 10;
+      position: relative;
+    }
+
+    .title {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.6em;
+      font-weight: bold;
+      color: #ffcc00;
+    }
+
+    /* 文件选择 */
+    .file-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .file-inputs input {
+      padding: 8px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid #555;
+    }
+
+    /* 歌词区域 */
+    .lyrics-container {
+      height: 180px;
+      overflow: hidden;
+      margin: 20px 0;
+      text-align: center;
+      position: relative;
+    }
+
+    .lyrics {
+      position: absolute;
+      width: 100%;
+      transition: transform 0.5s ease;
+    }
+
+    .lyric-line {
+      padding: 8px 0;
+      opacity: 0.6;
+      transition: all 0.3s ease;
+    }
+
+    .lyric-line.active {
+      opacity: 1;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #ff9966;
+    }
+
+    /* 控制栏 */
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5em;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .btn:hover {
+      transform: scale(1.2);
+    }
+
+    /* 进度条 */
+    .progress-container {
+      background: rgba(255, 255, 255, 0.2);
+      height: 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin: 10px 0;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(to right, #ff5e62, #ff9966);
+      border-radius: 3px;
+    }
+
+    .time-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9em;
+      opacity: 0.8;
+      margin-top: 5px;
+    }
+
+    /* 音量控制 */
+    .volume-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .volume-control input[type="range"] {
+      flex: 1;
+      height: 5px;
+      -webkit-appearance: none;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .volume-control input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ff9966;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- 全屏频谱背景 -->
+  <canvas id="visualizerCanvas"></canvas>
+
+  <div class="player-container">
+    <h2 class="title">🎧 本地音乐播放器</h2>
+
+    <!-- 文件选择 -->
+    <div class="file-inputs">
+      <input type="file" id="audioFile" accept="audio/*" />
+      <input type="file" id="lyricFile" accept=".lrc" placeholder="选择 .lrc 歌词文件（可选）" />
+    </div>
+
+    <!-- 歌词 -->
+    <div class="lyrics-container">
+      <div class="lyrics" id="lyrics"></div>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="time-info">
+      <span id="currentTime">0:00</span>
+      <span id="duration">0:00</span>
+    </div>
+
+    <!-- 音量控制 -->
+    <div class="volume-control">
+      <span>🔈</span>
+      <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.7" />
+      <span>🔊</span>
+    </div>
+
+    <!-- 控制按钮 -->
+    <div class="controls">
+      <button class="btn" id="prevBtn">⏮️</button>
+      <button class="btn" id="playBtn">▶️</button>
+      <button class="btn" id="nextBtn">⏭️</button>
+    </div>
+
+    <audio id="audio" preload="metadata"></audio>
+  </div>
+
+  <script>
+    // DOM 元素
+    const audio = document.getElementById('audio');
+    const playBtn = document.getElementById('playBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressContainer = document.getElementById('progressContainer');
+    const currentTimeEl = document.getElementById('currentTime');
+    const durationEl = document.getElementById('duration');
+    const lyricsEl = document.getElementById('lyrics');
+    const audioFileInput = document.getElementById('audioFile');
+    const lyricFileInput = document.getElementById('lyricFile');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const canvas = document.getElementById('visualizerCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let analyser, dataArray, animationId;
+    let currentLyrics = [];
+    let isPlaying = false;
+
+    // 设置 canvas 尺寸
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // ===== 文件加载 =====
+    audioFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      audio.src = url;
+      loadLyricsFromInput(); // 尝试加载已选歌词
+    });
+
+    lyricFileInput.addEventListener('change', loadLyricsFromInput);
+
+    function loadLyricsFromInput() {
+      const file = lyricFileInput.files[0];
+      if (!file) {
+        currentLyrics = [{ time: 0, text: "未加载歌词文件" }];
+        renderLyrics(currentLyrics);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const lrcText = e.target.result;
+        currentLyrics = parseLRC(lrcText);
+        renderLyrics(currentLyrics);
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    // 解析 LRC 格式
+    function parseLRC(lrc) {
+      const lines = lrc.split('\n');
+      const result = [];
+      const timeRegex = /\[(\d{2}):(\d{2})\.?(\d{2,3})?\]/g;
+
+      for (const line of lines) {
+        let match;
+        while ((match = timeRegex.exec(line)) !== null) {
+          const min = parseInt(match[1], 10);
+          const sec = parseInt(match[2], 10);
+          const ms = match[3] ? parseInt(match[3].padEnd(3, '0').slice(0, 3), 10) : 0;
+          const time = min * 60 + sec + ms / 1000;
+          const text = line.replace(timeRegex, '').trim();
+          if (text) result.push({ time, text });
+        }
+      }
+
+      result.sort((a, b) => a.time - b.time);
+      return result.length ? result : [{ time: 0, text: "歌词解析失败或为空" }];
+    }
+
+    // 渲染歌词
+    function renderLyrics(lyrics) {
+      lyricsEl.innerHTML = '';
+      lyrics.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'lyric-line';
+        div.dataset.time = item.time;
+        div.textContent = item.text;
+        lyricsEl.appendChild(div);
+      });
+    }
+
+    // ===== 播放控制 =====
+    playBtn.addEventListener('click', togglePlay);
+    audio.addEventListener('play', () => {
+      isPlaying = true;
+      playBtn.textContent = '⏸️';
+    });
+    audio.addEventListener('pause', () => {
+      isPlaying = false;
+      playBtn.textContent = '▶️';
+    });
+
+    function togglePlay() {
+      if (audio.src) {
+        if (isPlaying) {
+          audio.pause();
+        } else {
+          audio.play().catch(e => console.warn("播放失败:", e));
+        }
+      }
+    }
+
+    // ===== 进度条 =====
+    audio.addEventListener('loadedmetadata', () => {
+      durationEl.textContent = formatTime(audio.duration);
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      if (audio.duration) {
+        const percent = (audio.currentTime / audio.duration) * 100;
+        progressBar.style.width = `${percent}%`;
+      }
+      currentTimeEl.textContent = formatTime(audio.currentTime);
+      updateLyricsHighlight();
+    });
+
+    progressContainer.addEventListener('click', (e) => {
+      const width = progressContainer.clientWidth;
+      const clickX = e.offsetX;
+      audio.currentTime = (clickX / width) * audio.duration;
+    });
+
+    // ===== 歌词高亮 =====
+    function updateLyricsHighlight() {
+      const currentTime = audio.currentTime;
+      const lines = document.querySelectorAll('.lyric-line');
+      let activeLine = null;
+
+      lines.forEach(line => {
+        const time = parseFloat(line.dataset.time);
+        if (currentTime >= time) {
+          activeLine = line;
+        }
+      });
+
+      lines.forEach(line => line.classList.remove('active'));
+      if (activeLine) {
+        activeLine.classList.add('active');
+        const container = document.querySelector('.lyrics-container');
+        const offsetTop = activeLine.offsetTop - container.offsetHeight / 2 + activeLine.offsetHeight / 2;
+        lyricsEl.style.transform = `translateY(${-offsetTop}px)`;
+      }
+    }
+
+    // ===== 音量控制 =====
+    volumeSlider.addEventListener('input', () => {
+      audio.volume = volumeSlider.value;
+    });
+
+    // ===== 频谱可视化（背景）=====
+    async function setupAudioContext() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioContext();
+
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      const bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+
+      const source = audioCtx.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+
+      animateVisualizer();
+    }
+
+    function animateVisualizer() {
+      if (!analyser) return;
+      animationId = requestAnimationFrame(animateVisualizer);
+      analyser.getByteFrequencyData(dataArray);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const barWidth = canvas.width / dataArray.length;
+      let x = 0;
+
+      for (let i = 0; i < dataArray.length; i++) {
+        const barHeight = (dataArray[i] / 255) * canvas.height * 0.6;
+        const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+        gradient.addColorStop(0, 'rgba(255, 153, 102, 0.6)');
+        gradient.addColorStop(1, 'rgba(255, 94, 98, 0.9)');
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+        x += barWidth + 1;
+      }
+    }
+
+    // 首次用户交互后启动 AudioContext（绕过自动播放策略）
+    document.body.addEventListener('click', () => {
+      if (!analyser && audio.src) {
+        setupAudioContext().catch(console.error);
+      }
+    }, { once: true });
+
+    // 初始化默认歌词
+    currentLyrics = [{ time: 0, text: "请上传 MP3 和 .lrc 歌词文件" }];
+    renderLyrics(currentLyrics);
+
+    // 时间格式化
+    function formatTime(seconds) {
+      if (isNaN(seconds)) return "0:00";
+      const min = Math.floor(seconds / 60);
+      const sec = Math.floor(seconds % 60);
+      return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+    }
+  </script>
+</body>
+</html>

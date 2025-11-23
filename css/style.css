@@ -1,0 +1,502 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', 'PingFang SC', 'Helvetica Neue', sans-serif;
+}
+
+#visualizerCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  opacity: 0.6;
+  /* 提升透明度，让频谱更清晰 */
+}
+
+body {
+  /* 移除深灰背景遮罩，让频谱成为唯一背景 */
+  background: #0a0a0f;
+  color: white;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  position: relative;
+}
+
+.player-container {
+  background: rgba(10, 10, 15, 0.1);
+  backdrop-filter: blur(16px);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 1000px;
+  padding: 32px;
+  /* 新增：双层发光边框 */
+  box-shadow:
+    /* 主光晕 */
+    0 0 32px rgba(255, 204, 0, 0.12),
+    /* 底部投影增强立体感 */
+    0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== 抽屉通用样式 ===== */
+.drawer {
+  position: fixed;
+  top: 0;
+  height: 100vh;
+  width: 320px;
+  background: rgba(15, 15, 25, 0.96);
+  backdrop-filter: blur(12px);
+  z-index: 1000;
+  transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+  padding: 24px;
+  overflow-y: auto;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.drawer-header h3 {
+  color: #FFCC00;
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 1.6em;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #fff;
+}
+
+.playlist-item {
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  color: #ccc;
+  font-size: 1em;
+  transition: all 0.25s ease;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.playlist-item:hover {
+  background: rgba(255, 204, 0, 0.15);
+  color: #FFCC00;
+}
+
+.playlist-item.active {
+  background: rgba(255, 204, 0, 0.25);
+  color: #FFCC00;
+  font-weight: 600;
+}
+
+.setting-item {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+  font-size: 1.05em;
+  margin-bottom: 8px;
+  color: #ddd;
+}
+
+.setting-control {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.setting-control:hover {
+  background: rgba(255, 204, 0, 0.2);
+}
+
+.current-folder-path {
+  margin-top: 8px;
+  font-size: 0.9em;
+  color: #aaa;
+  word-break: break-all;
+  line-height: 1.4;
+  opacity: 0.8;
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.main-title {
+  font-size: 2.1em;
+  font-weight: 800;
+  background: linear-gradient(to right, #FFCC00, #FF5E62);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 1px;
+}
+
+.subtitle {
+  font-size: 0.95em;
+  opacity: 0.7;
+  letter-spacing: 2px;
+  font-weight: 600;
+}
+
+.now-playing {
+  text-align: center;
+  margin: 16px 0;
+  font-size: 1.2em;
+  color: #FFCC00;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.lyrics-container {
+  height: 160px;
+  overflow: hidden;
+  margin: 24px 0;
+  text-align: center;
+  position: relative;
+}
+
+.lyrics {
+  position: absolute;
+  width: 100%;
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.lyric-line {
+  padding: 10px 0;
+  opacity: 0.6;
+  font-size: 1.1em;
+  transition: all 0.3s ease;
+  line-height: 1.4;
+}
+
+.lyric-line.active {
+  opacity: 1;
+  font-size: 1.3em;
+  font-weight: 600;
+  color: #FFCC00;
+}
+
+.progress-container {
+  background: rgba(255, 255, 255, 0.1);
+  height: 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin: 16px 0;
+  position: relative;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to right, #FF5E62, #FFCC00);
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+.time-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95em;
+  opacity: 0.85;
+  margin-top: 8px;
+  color: #ccc;
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.volume-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: #FFCC00;
+}
+
+.volume-slider {
+  flex: 1;
+  height: 5px;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  outline: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #FFCC00;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  /* 中间三键紧凑 */
+  margin: 28px 0;
+}
+
+/* 两侧按钮（设置/列表）稍大一点间距 */
+.control-btn.side-btn {
+  margin: 0 16px;
+  /* 在两侧额外留空 */
+}
+
+/* 播放按钮可稍大（可选） */
+.control-btn.main-btn {
+  width: 64px;
+  height: 64px;
+}
+
+.control-btn.main-btn svg {
+  width: 28px;
+  height: 28px;
+}
+
+.control-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.control-btn:hover {
+  background: rgba(255, 204, 0, 0.25);
+  transform: scale(1.08);
+}
+
+.control-btn:active {
+  transform: scale(0.96);
+}
+
+.control-btn svg {
+  width: 24px;
+  height: 24px;
+  fill: #FFCC00;
+}
+
+/* 抽屉位置 */
+#settingsDrawer {
+  left: -320px;
+}
+
+#settingsDrawer.open {
+  left: 0;
+}
+
+#playlistDrawer {
+  right: -320px;
+}
+
+#playlistDrawer.open {
+  right: 0;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (max-width: 600px) {
+  .player-container {
+    padding: 24px;
+  }
+
+  .controls {
+    gap: 14px;
+  }
+
+  .control-btn {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+/* 设置项间距 */
+.setting-item {
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.setting-label {
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #eee;
+}
+
+input[type="color"] {
+  width: 100%;
+  margin-top: 4px;
+  background: #ffffff39;
+}
+
+.setting-item input[type="range"] {
+  width: 100%;
+  margin-top: 4px;
+  /* background: #FF5E62; */
+  accent-color: #FFCC00;
+}
+
+/* 开关样式 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #2d2d3a;
+  transition: .2s ease;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1); /* 轻微描边，提升精致感 */
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 3px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+input:checked+.slider {
+  background-color: #ffcc00;
+}
+
+input:checked+.slider:before {
+  transform: translateX(24px);
+}
+
+/* ===== 下拉选择器：重写为胶囊形，匹配开关高度和圆角 ===== */
+.setting-select {
+  /* 尺寸与开关视觉对齐 */
+  height: 26px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #e0e0e0;
+  
+  /* 圆角 & 背景 */
+  border-radius: 16px; /* 胶囊形 */
+  background: #2d2d3a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  
+  /* 去默认样式 */
+  appearance: none;
+  outline: none;
+  cursor: pointer;
+}
+
+.setting-select:hover {
+  background: #353545;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.setting-select:focus {
+  border-color: #ffcc00;
+  box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.2);
+}
+
+/* 自定义下拉箭头（保持简洁） */
+.setting-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='%23aaa'%3e%3cpath d='M6 9l-5-5h10z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+  padding-right: 28px; /* 为箭头留空间 */
+}
+
+.setting-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

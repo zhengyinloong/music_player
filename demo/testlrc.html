@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>LRC Test</title></head>
+<body>
+  <input type="file" id="folder" webkitdirectory />
+  <div id="lyrics"></div>
+
+  <script>
+    function parseLRC(lrcText) {
+      if (!lrcText) return [];
+      const lines = lrcText.split('\n');
+      const result = [];
+      for (const line of lines) {
+        const matches = [...line.matchAll(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g)];
+        if (!matches.length) continue;
+        let text = line;
+        matches.forEach(m => text = text.replace(m[0], ''));
+        text = text.trim();
+        if (!text) continue;
+        matches.forEach(m => {
+          const min = parseInt(m[1]) || 0;
+          const sec = parseInt(m[2]) || 0;
+          const ms = (m[3] ? m[3].padEnd(3, '0').slice(0,3) : '000');
+          const time = min * 60 + sec + parseInt(ms)/1000;
+          result.push({ time, text });
+        });
+      }
+      return result.sort((a,b)=>a.time-b.time);
+    }
+
+    document.getElementById('folder').addEventListener('change', e => {
+      const files = [...e.target.files];
+      const lrc = files.find(f => f.name.endsWith('.lrc'));
+      if (lrc) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const lyrics = parseLRC(reader.result);
+          const div = document.getElementById('lyrics');
+          div.innerHTML = lyrics.map(l => `${l.time.toFixed(2)}: ${l.text}<br>`).join('');
+          console.log("Parsed", lyrics.length, "lines");
+        };
+        reader.readAsText(lrc, 'utf-8');
+      }
+    });
+  </script>
+</body>
+</html>

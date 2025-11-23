@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>律动 · RHYTHMO</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+  <canvas id="visualizerCanvas"></canvas>
+
+  <div class="player-container">
+    <div class="title">
+      <div class="main-title">律动</div>
+      <div class="subtitle">RHYTHMO</div>
+    </div>
+
+    <div class="now-playing" id="nowPlaying">未加载歌曲</div>
+
+    <div class="lyrics-container">
+      <div class="lyrics" id="lyrics"></div>
+    </div>
+
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="time-info">
+      <span id="currentTime">0:00</span>
+      <span id="duration">0:00</span>
+    </div>
+
+    <div class="volume-control">
+      <span class="volume-icon">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M3,9H7L12,4V20L7,15H3V9M15.54,13.5C15.71,13.5 15.86,13.44 16,13.34C16.14,13.23 16.24,13.08 16.3,12.91C16.36,12.74 16.39,12.56 16.39,12.37C16.39,12.18 16.36,12 16.3,11.83C16.24,11.66 16.14,11.51 16,11.4C15.86,11.29 15.71,11.23 15.54,11.23C15.37,11.23 15.22,11.29 15.09,11.4C14.96,11.51 14.86,11.66 14.8,11.83C14.74,12 14.71,12.18 14.71,12.37C14.71,12.56 14.74,12.74 14.8,12.91C14.86,13.08 14.96,13.23 15.09,13.34C15.22,13.44 15.37,13.5 15.54,13.5Z" />
+        </svg>
+      </span>
+      <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01" value="0.7" />
+    </div>
+
+    <div class="controls">
+      <button class="control-btn side-btn" id="settingsBtn">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
+        </svg>
+      </button>
+
+      <button class="control-btn" id="prevBtn">
+        <svg viewBox="0 0 24 24">
+          <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+        </svg>
+      </button>
+
+      <button class="control-btn main-btn" id="playBtn">
+        <svg viewBox="0 0 24 24" id="playIcon">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        <svg viewBox="0 0 24 24" id="pauseIcon" style="display:none;">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+        </svg>
+      </button>
+
+      <button class="control-btn" id="nextBtn">
+        <svg viewBox="0 0 24 24">
+          <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+        </svg>
+      </button>
+
+      <button class="control-btn side-btn" id="playlistBtn">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M14,10H2V12H14V10M14,6H2V8H14V6M2,16H10V14H2V16M21.5,11.5L19,14L16.5,11.5L19,9L21.5,11.5M21.5,7.5L19,10L16.5,7.5L19,5L21.5,7.5Z" />
+        </svg>
+      </button>
+    </div>
+
+    <audio id="audio" preload="metadata"></audio>
+  </div>
+
+  <!-- 设置抽屉（左侧） -->
+  <div class="drawer" id="settingsDrawer">
+    <div class="drawer-header">
+      <h3>设置</h3>
+      <button class="close-btn" id="closeSettingsBtn">×</button>
+    </div>
+    <div class="setting-item">
+      <div class="setting-label">音乐文件夹</div>
+      <button class="setting-control" id="selectFolderBtn">选择本地文件夹</button>
+      <div id="currentFolderPath" class="current-folder-path">未选择文件夹</div>
+    </div>
+    <!-- 频谱设置 -->
+    <div class="setting-item">
+      <div class="setting-label">频谱可视化</div>
+      <label class="switch">
+        <input type="checkbox" id="visualizerToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <!-- 着色模式 -->
+    <div class="setting-item">
+      <div class="setting-label">着色模式</div>
+      <select id="visualizerColorMode" class="setting-select">
+        <option value="solid">单色</option>
+        <option value="energy">能量着色</option>
+        <option value="rainbow">彩虹渐变</option>
+        <option value="heat">热力图</option>
+      </select>
+    </div>
+
+    <!-- 颜色选择器 -->
+    <div class="setting-item">
+      <div class="setting-label">频谱颜色</div>
+      <input type="color" id="visualizerColor" value="#ffcc00">
+    </div>
+
+    <div class="setting-item">
+      <div class="setting-label">频谱高度</div>
+      <input type="range" id="visualizerHeight" min="0.1" max="0.9" step="0.05" value="0.3">
+      <span id="visualizerHeightValue">30%</span>
+    </div>
+    <!-- 频谱上升速度 -->
+    <div class="setting-item">
+      <div class="setting-label">响应灵敏度</div>
+      <input type="range" id="riseSpeedSlider" min="0.1" max="1.0" step="0.05">
+      <span id="riseSpeedValue">0.4</span>
+    </div>
+
+    <!-- 频谱下降速度 -->
+    <div class="setting-item">
+      <div class="setting-label">余韵衰减量</div>
+      <input type="range" id="fallSpeedSlider" min="0.1" max="1.0" step="0.05">
+      <span id="fallSpeedValue">0.1</span>
+    </div>
+  </div>
+
+  <!-- 播放列表抽屉（右侧） -->
+  <div class="drawer" id="playlistDrawer">
+    <div class="drawer-header">
+      <h3>播放列表（0 首）</h3>
+      <button class="close-btn" id="closePlaylistBtn">×</button>
+    </div>
+    <div class="playlist" id="playlist"></div>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+
+  <!-- 引入 JS 模块 -->
+  <script src="js/script.js"></script>
+  <!-- <script src="js/utils.js"></script>
+  <script src="js/visualizer.js"></script>
+  <script src="js/main.js"></script> -->
+</body>
+
+</html>

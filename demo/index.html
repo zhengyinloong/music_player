@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🎵 高颜值音乐播放器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .player-container {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 500px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .title {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.8em;
+      font-weight: bold;
+    }
+
+    /* 频谱区域 */
+    .visualizer {
+      height: 150px;
+      margin: 20px 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .visualizer-bar {
+      width: 4px;
+      background: linear-gradient(to top, #ff5e62, #ff9966);
+      border-radius: 2px 2px 0 0;
+      transition: height 0.1s ease;
+    }
+
+    /* 歌词区域 */
+    .lyrics-container {
+      height: 180px;
+      overflow: hidden;
+      margin: 20px 0;
+      text-align: center;
+      position: relative;
+    }
+
+    .lyrics {
+      position: absolute;
+      width: 100%;
+      transition: transform 0.5s ease;
+    }
+
+    .lyric-line {
+      padding: 8px 0;
+      opacity: 0.6;
+      transition: all 0.3s ease;
+    }
+
+    .lyric-line.active {
+      opacity: 1;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #ffcc00;
+    }
+
+    /* 控制栏 */
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5em;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .btn:hover {
+      transform: scale(1.2);
+    }
+
+    .progress-container {
+      background: rgba(255, 255, 255, 0.2);
+      height: 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin: 10px 0;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(to right, #ff5e62, #ff9966);
+      border-radius: 3px;
+      position: relative;
+    }
+
+    .time-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9em;
+      opacity: 0.8;
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="player-container">
+    <h2 class="title">🎧 音乐播放器</h2>
+
+    <!-- 频谱可视化 -->
+    <div class="visualizer" id="visualizer"></div>
+
+    <!-- 歌词 -->
+    <div class="lyrics-container">
+      <div class="lyrics" id="lyrics"></div>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="time-info">
+      <span id="currentTime">0:00</span>
+      <span id="duration">0:00</span>
+    </div>
+
+    <!-- 控制按钮 -->
+    <div class="controls">
+      <button class="btn" id="prevBtn">⏮️</button>
+      <button class="btn" id="playBtn">▶️</button>
+      <button class="btn" id="nextBtn">⏭️</button>
+    </div>
+
+    <!-- 隐藏的 audio 元素 -->
+    <audio id="audio" preload="metadata"></audio>
+  </div>
+
+  <script>
+    // ===== 数据部分（可替换为真实歌曲）=====
+    const songs = [
+      {
+        src: "/songs/Fool’s Garden,Fool's Garden - Lemon Tree.mp3",
+        title: 'Lemon Tree',
+        lyrics: [
+          { time: 0, text: "欢迎使用音乐播放器" },
+          { time: 10, text: "这是一段示例歌词" },
+          { time: 20, text: "请享受这段旋律" },
+          { time: 30, text: "🎵 动态频谱正在工作 🎵" },
+          { time: 40, text: "点击进度条可跳转" },
+          { time: 50, text: "支持上一首/下一首" },
+          { time: 60, text: "感谢您的聆听！" }
+        ]
+      },
+      {
+        src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+        title: 'SoundHelix - Song 2',
+        lyrics: [
+          { time: 0, text: "第二首歌曲开始" },
+          { time: 15, text: "歌词也会自动滚动" },
+          { time: 30, text: "当前行会高亮显示" }
+        ]
+      }
+    ];
+
+    // ===== DOM 元素 =====
+    const audio = document.getElementById('audio');
+    const playBtn = document.getElementById('playBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressContainer = document.getElementById('progressContainer');
+    const currentTimeEl = document.getElementById('currentTime');
+    const durationEl = document.getElementById('duration');
+    const lyricsEl = document.getElementById('lyrics');
+    const visualizerEl = document.getElementById('visualizer');
+
+    let currentSongIndex = 0;
+    let isPlaying = false;
+
+    // ===== 初始化 =====
+    function initPlayer() {
+      loadSong(songs[currentSongIndex]);
+      createVisualizerBars();
+    }
+
+    function loadSong(song) {
+      audio.src = song.src;
+      document.querySelector('.title').textContent = song.title;
+      renderLyrics(song.lyrics);
+    }
+
+    function renderLyrics(lyrics) {
+      lyricsEl.innerHTML = '';
+      lyrics.forEach(line => {
+        const div = document.createElement('div');
+        div.className = 'lyric-line';
+        div.dataset.time = line.time;
+        div.textContent = line.text;
+        lyricsEl.appendChild(div);
+      });
+    }
+
+    // ===== 播放控制 =====
+    playBtn.addEventListener('click', () => {
+      if (isPlaying) {
+        audio.pause();
+        playBtn.textContent = '▶️';
+      } else {
+        audio.play();
+        playBtn.textContent = '⏸️';
+      }
+      isPlaying = !isPlaying;
+    });
+
+    audio.addEventListener('play', () => {
+      isPlaying = true;
+      playBtn.textContent = '⏸️';
+    });
+
+    audio.addEventListener('pause', () => {
+      isPlaying = false;
+      playBtn.textContent = '▶️';
+    });
+
+    audio.addEventListener('ended', () => {
+      nextSong();
+    });
+
+    // ===== 进度条 =====
+    audio.addEventListener('loadedmetadata', () => {
+      durationEl.textContent = formatTime(audio.duration);
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      const percent = (audio.currentTime / audio.duration) * 100;
+      progressBar.style.width = `${percent}%`;
+      currentTimeEl.textContent = formatTime(audio.currentTime);
+      updateLyricsHighlight();
+    });
+
+    progressContainer.addEventListener('click', (e) => {
+      const width = progressContainer.clientWidth;
+      const clickX = e.offsetX;
+      const duration = audio.duration;
+      audio.currentTime = (clickX / width) * duration;
+    });
+
+    // ===== 歌词高亮 =====
+    function updateLyricsHighlight() {
+      const currentTime = audio.currentTime;
+      const lines = document.querySelectorAll('.lyric-line');
+      let activeLine = null;
+
+      lines.forEach(line => {
+        const time = parseFloat(line.dataset.time);
+        if (currentTime >= time) {
+          activeLine = line;
+        }
+      });
+
+      lines.forEach(line => line.classList.remove('active'));
+      if (activeLine) {
+        activeLine.classList.add('active');
+        // 滚动居中
+        const container = document.querySelector('.lyrics-container');
+        const offsetTop = activeLine.offsetTop - container.offsetHeight / 2 + activeLine.offsetHeight / 2;
+        lyricsEl.style.transform = `translateY(${-offsetTop}px)`;
+      }
+    }
+
+    // ===== 切歌 =====
+    prevBtn.addEventListener('click', () => {
+      currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+      loadSong(songs[currentSongIndex]);
+      if (isPlaying) audio.play();
+    });
+
+    nextBtn.addEventListener('click', () => {
+      nextSong();
+    });
+
+    function nextSong() {
+      currentSongIndex = (currentSongIndex + 1) % songs.length;
+      loadSong(songs[currentSongIndex]);
+      if (isPlaying) audio.play();
+    }
+
+    // ===== 时间格式化 =====
+    function formatTime(seconds) {
+      const min = Math.floor(seconds / 60);
+      const sec = Math.floor(seconds % 60);
+      return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+    }
+
+    // ===== 频谱可视化 =====
+    let analyser, dataArray, animationId;
+
+    function createVisualizerBars() {
+      visualizerEl.innerHTML = '';
+      for (let i = 0; i < 64; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'visualizer-bar';
+        visualizerEl.appendChild(bar);
+      }
+    }
+
+    async function setupAudioContext() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioContext();
+
+      // 创建分析器
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 128;
+      const bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+
+      // 连接音频源
+      const source = audioCtx.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+
+      animateVisualizer();
+    }
+
+    function animateVisualizer() {
+      if (!analyser) return;
+      animationId = requestAnimationFrame(animateVisualizer);
+      analyser.getByteFrequencyData(dataArray);
+
+      const bars = document.querySelectorAll('.visualizer-bar');
+      for (let i = 0; i < bars.length; i++) {
+        const value = dataArray[i] || 0;
+        const percent = value / 256;
+        const height = 150 * percent;
+        bars[i].style.height = `${height}px`;
+      }
+    }
+
+    // 当用户首次交互后启动 AudioContext（浏览器策略）
+    document.body.addEventListener('click', () => {
+      if (!analyser) {
+        setupAudioContext().catch(console.error);
+      }
+    }, { once: true });
+
+    // ===== 启动 =====
+    initPlayer();
+  </script>
+</body>
+</html>
